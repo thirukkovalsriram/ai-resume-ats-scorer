@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Resume ATS Scorer</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M10 7h8l4 4v14a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M12 18l3 3 5-6' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <header class="bg-white border-b border-slate-200 py-4 px-6 shadow-xs">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Custom SVG Logo -->
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-sm">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="m9 15 2 2 4-4" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight leading-none">
+            Resume<span class="text-indigo-600">Pulse</span> ATS
+          </h1>
+          <p class="text-[11px] text-slate-500 mt-0.5">Instant Keyword &amp; Match Analyzer</p>
+        </div>
+      </div>
+
+      <span class="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
+        FastAPI + NLP Engine
+      </span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form id="atsForm" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+      <h2 class="text-lg font-semibold">1. Upload Resume & Job Description</h2>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Resume (PDF only)</label>
+        <input type="file" id="resumeFile" accept=".pdf" required
+          class="w-full text-sm border border-slate-300 rounded-lg p-2 bg-slate-50" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Job Description</label>
+        <textarea id="jobDesc" rows="9" required placeholder="Paste the job description here..."
+          class="w-full border border-slate-300 rounded-lg p-3 text-sm"></textarea>
+      </div>
+
+      <p id="errorBox" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-lg"></p>
+
+      <button type="submit" id="submitBtn"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">
+        Check ATS Score
+      </button>
+    </form>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <h2 class="text-lg font-semibold mb-4">2. ATS Report</h2>
+
+      <div id="placeholder" class="h-72 flex items-center justify-center text-slate-400 text-sm text-center">
+        Upload your PDF resume and paste a job description to see your match score and missing keywords.
+      </div>
+
+      <div id="resultBox" class="hidden space-y-4">
+        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+          <p class="text-xs uppercase tracking-wide text-indigo-600 font-semibold">ATS Match Score</p>
+          <p id="scoreText" class="text-3xl font-bold text-indigo-700 mt-1">0 / 100</p>
+        </div>
+
+        <p id="summaryText" class="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg"></p>
+
+        <div>
+          <h3 class="text-sm font-semibold text-emerald-700 mb-1.5">Matched Keywords</h3>
+          <div id="matchedList" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-rose-700 mb-1.5">Missing Keywords</h3>
+          <div id="missingList" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 mb-1.5">Resume Bullet Improvements</h3>
+          <ul id="tipsList" class="list-disc pl-5 space-y-1 text-sm text-slate-600"></ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById("atsForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const errorBox = document.getElementById("errorBox");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorBox.classList.add("hidden");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Analyzing Resume...";
+
+      const formData = new FormData();
+      formData.append("resume", document.getElementById("resumeFile").files[0]);
+      formData.append("job_description", document.getElementById("jobDesc").value);
+
+      try {
+        const res = await fetch("/api/analyze", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Something went wrong");
+
+        document.getElementById("placeholder").classList.add("hidden");
+        document.getElementById("resultBox").classList.remove("hidden");
+
+        document.getElementById("scoreText").textContent = `${data.match_score} / 100`;
+        document.getElementById("summaryText").textContent = data.overall_summary;
+
+        document.getElementById("matchedList").innerHTML = data.matched_keywords
+          .map(k => `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">${k}</span>`)
+          .join("");
+
+        document.getElementById("missingList").innerHTML = data.missing_keywords
+          .map(k => `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-medium">${k}</span>`)
+          .join("");
+
+        document.getElementById("tipsList").innerHTML = data.bullet_improvements
+          .map(t => `<li>${t}</li>`)
+          .join("");
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Check ATS Score";
+      }
+    });
+  </script>
+</body>
+</html>
